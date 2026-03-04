@@ -43,7 +43,8 @@ st.markdown("<p class='sub-text'>Premium Flavors Delivered to Your Doorstep</p>"
 # Add a professional Banner/Logo image
 # If you have a local image, use st.image("logo.png")
 st.image("https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80", 
-         caption="Experience the best cuisine in town", use_container_width=True)
+         caption="Experience the best cuisine in town", 
+         use_column_width=True)
 
 st.divider()
 
@@ -82,4 +83,5 @@ if st.button("🍽️ Browse Menu Now", use_container_width=True, type="primary"
     st.switch_page("pages/2_Menu.py")
 
 # Footer
+
 st.markdown("<br><p style='text-align: center; color: gray;'>© 2026 K-foodhub Enterprise. All rights reserved.</p>", unsafe_allow_html=True)
