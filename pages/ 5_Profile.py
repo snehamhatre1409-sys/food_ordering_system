@@ -28,3 +28,4 @@ with st.form("update_profile"):
         c.execute("UPDATE users SET email=?, phone=? WHERE id=?", (new_email, new_phone, st.session_state.user_id))
         conn.commit()
         st.success("Profile updated!")
+
