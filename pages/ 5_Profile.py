@@ -1,65 +1,87 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
+from datetime import datetime
+from utils import conn  # Ensure your utils.py has a valid sqlite3 connection
 
-# 1. PAGE CONFIG
-st.set_page_config(page_title="User Profile", page_icon="👤")
+# --- 1. INITIALIZE DATABASE TABLE ---
+def init_db():
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                  username TEXT UNIQUE, 
+                  password TEXT, 
+                  email TEXT, 
+                  phone TEXT, 
+                  role TEXT, 
+                  join_date TEXT)''')
+    conn.commit()
 
-# 2. LOGIN SAFETY CHECK
-# This prevents the AttributeError you saw earlier
-if "user_id" not in st.session_state:
-    st.warning("⚠️ Access Denied. Please go to the Login page first.")
-    if st.button("Go to Login"):
-        st.switch_page("pages/1_Login.py")
-    st.stop() 
+init_db()
 
-# 3. DATABASE CONNECTION
-# Ensure this matches your filename on GitHub (e.g., food_ordering.db)
-conn = sqlite3.connect('food_ordering.db')
+# --- 2. CHECK LOGIN STATE ---
+# If user is already logged in, show a welcome message and a logout button
+if "username" in st.session_state:
+    st.title(f"👋 Welcome, {st.session_state.username}!")
+    st.info(f"Logged in as: {st.session_state.role}")
+    
+    if st.button("Log Out"):
+        for key in ["user_id", "username", "role"]:
+            del st.session_state[key]
+        st.rerun()
+    st.stop() # Stops the rest of the script (login form) from running
 
-try:
-    # 4. FETCH USER DATA
-    # We use the ID stored in session_state during login
-    query = f"SELECT * FROM users WHERE id={st.session_state.user_id}"
-    user_df = pd.read_sql(query, conn)
+# --- 3. LOGIN / REGISTER UI ---
+st.title("🔐 Login / Register")
+st.markdown("---")
 
-    if not user_df.empty:
-        user_data = user_df.iloc[0]
+tab1, tab2 = st.tabs(["Login", "Register"])
+
+with tab1:
+    with st.form("login_form"):
+        username = st.text_input("👤 Username")
+        password = st.text_input("🔒 Password", type="password")
+        submit_login = st.form_submit_button("Login")
+
+        if submit_login:
+            if username and password:
+                c = conn.cursor()
+                # We use a tuple for parameters
+                c.execute("SELECT id, username, role FROM users WHERE username=? AND password=?", 
+                         (username, password))
+                user = c.fetchone()
+                
+                if user:
+                    st.session_state.user_id = user[0]
+                    st.session_state.username = user[1]
+                    st.session_state.role = user[2]
+                    st.success(f"✅ Welcome back, {user[1]}!")
+                    st.rerun()
+                else:
+                    st.error("❌ Invalid username or password")
+            else:
+                st.warning("Please enter both username and password")
+
+with tab2:
+    with st.form("register_form"):
+        new_username = st.text_input("👤 New Username")
+        new_password = st.text_input("🔒 New Password", type="password")
+        email = st.text_input("📧 Email")
+        phone = st.text_input("📱 Phone")
+        role = st.selectbox("Role", ["customer", "admin"])
+        submit_reg = st.form_submit_button("Register")
         
-        st.title(f"👋 Welcome, {user_data['username']}!")
-        st.subheader("Your Profile Details")
-        
-        # Displaying data in a nice layout
-        col1, col2 = st.columns(2)
-        with col1:
-            st.info(f"**Email:** {user_data['email']}")
-            st.info(f"**Phone:** {user_data.get('phone', 'Not provided')}")
-        
-        with col2:
-            st.info(f"**Account Status:** Active")
-            st.info(f"**Member Since:** 2024")
-
-        # 5. FETCH RECENT ORDERS (Optional but recommended)
-        st.divider()
-        st.subheader("📦 Your Recent Orders")
-        order_query = f"SELECT id, item_name, price, status FROM orders WHERE user_id={st.session_state.user_id} ORDER BY id DESC"
-        orders_df = pd.read_sql(order_query, conn)
-        
-        if not orders_df.empty:
-            st.dataframe(orders_df, use_container_width=True)
-        else:
-            st.write("You haven't placed any orders yet!")
-
-    else:
-        st.error("User record not found in database.")
-
-except Exception as e:
-    st.error(f"Error loading profile: {e}")
-
-finally:
-    conn.close()
-
-# 6. LOGOUT BUTTON
-if st.sidebar.button("Log Out"):
-    del st.session_state.user_id
-    st.rerun()
+        if submit_reg:
+            if new_username and new_password:
+                try:
+                    c = conn.cursor()
+                    c.execute("""INSERT INTO users (username, password, email, phone, role, join_date) 
+                                 VALUES (?, ?, ?, ?, ?, ?)""",
+                             (new_username, new_password, email, phone, role, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                    conn.commit()
+                    st.success("✅ Registered successfully! You can now log in.")
+                except Exception as e:
+                    # This usually triggers if the username (UNIQUE) already exists
+                    st.error(f"❌ Registration failed: Username might already be taken.")
+            else:
+                st.warning("Username and Password are required.")
+                
