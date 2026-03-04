@@ -44,3 +44,4 @@ with tab2:
                 st.success("✅ Registered successfully! Please login.")
             except Exception as e:
                 st.error("❌ Username already exists")
+
